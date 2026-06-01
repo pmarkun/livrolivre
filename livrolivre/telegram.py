@@ -33,14 +33,29 @@ def notify_submission(submission_id: int, book: Book) -> None:
     api("sendMessage", {"chat_id": TELEGRAM_CHAT_ID, "text": text, "reply_markup": keyboard(submission_id)})
 
 
+def send_test_message() -> dict:
+    if not enabled():
+        return {"ok": False, "error": "telegram_not_configured"}
+    return api(
+        "sendMessage",
+        {
+            "chat_id": TELEGRAM_CHAT_ID,
+            "text": "Teste do Livro Livre: se esta mensagem chegou, o bot consegue enviar. Os botoes deste teste nao alteram recados reais.",
+            "reply_markup": keyboard(0),
+        },
+    )
+
+
 def handle_update(update: dict) -> dict:
     callback = update.get("callback_query")
     if not callback:
         return {"ok": True}
     message = callback.get("message") or {}
     chat = message.get("chat") or {}
-    if str(chat.get("id", "")) != str(TELEGRAM_CHAT_ID):
+    print(f"Telegram callback recebido: data={callback.get('data')} chat={chat.get('id')} username={chat.get('username')}")
+    if not authorized_chat(chat):
         answer_callback(callback.get("id"), "Este chat nao esta autorizado.")
+        print(f"Telegram callback rejeitado: chat nao autorizado. esperado={TELEGRAM_CHAT_ID!r} recebido={chat}")
         return {"ok": False, "error": "unauthorized_chat"}
     action, submission_id = parse_callback_data(callback.get("data", ""))
     if not action:
@@ -57,7 +72,19 @@ def handle_update(update: dict) -> dict:
     label = ACTION_LABELS[action]
     answer_callback(callback.get("id"), label)
     edit_markup(message, f"{message.get('text', '')}\n\nStatus: {label}")
+    print(f"Telegram callback aplicado: submission={submission_id} action={action}")
     return {"ok": True, "action": action, "submission_id": submission_id}
+
+
+def authorized_chat(chat: dict) -> bool:
+    configured = str(TELEGRAM_CHAT_ID or "").strip()
+    if not configured:
+        return False
+    chat_id = str(chat.get("id", "")).strip()
+    username = str(chat.get("username", "")).strip().lower()
+    if configured.startswith("@"):
+        return username == configured[1:].lower()
+    return chat_id == configured
 
 
 def submission_text(row: Row, book: Book) -> str:
@@ -120,7 +147,7 @@ def parse_callback_data(data: str) -> tuple[str | None, int]:
 
 def answer_callback(callback_id: str | None, text: str) -> None:
     if callback_id:
-        api("answerCallbackQuery", {"callback_query_id": callback_id, "text": text})
+        api("answerCallbackQuery", {"callback_query_id": callback_id, "text": text, "show_alert": False})
 
 
 def edit_markup(message: dict, text: str) -> None:
@@ -141,5 +168,12 @@ def api(method: str, payload: dict) -> dict:
         with urllib.request.urlopen(request, timeout=TELEGRAM_TIMEOUT_SECONDS) as response:
             return json.loads(response.read().decode("utf-8"))
     except (urllib.error.URLError, TimeoutError, json.JSONDecodeError) as exc:
-        print(f"Telegram {method} falhou: {exc}")
+        print(f"Telegram {method} falhou: {exc}; payload={safe_payload(payload)}")
         return {"ok": False, "error": str(exc)}
+
+
+def safe_payload(payload: dict) -> dict:
+    clean = dict(payload)
+    if "text" in clean and isinstance(clean["text"], str) and len(clean["text"]) > 160:
+        clean["text"] = clean["text"][:160] + "..."
+    return clean

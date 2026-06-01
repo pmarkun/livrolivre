@@ -15,7 +15,7 @@ from .forms import parse_multipart, parse_urlencoded
 from .media import save_media
 from .security import ip_fingerprint, is_admin, sign_session, valid_form_token
 from .settings import ADMIN_PASSWORD, DEFAULT_BOOK_SLUG, MAX_UPLOAD_BYTES, ROOT, SESSION_COOKIE, TELEGRAM_WEBHOOK_SECRET, UPLOAD_DIR
-from .telegram import handle_update, notify_submission
+from .telegram import handle_update, notify_submission, send_test_message
 from .views import admin_dashboard, admin_login, error_page, public_home
 
 
@@ -45,6 +45,8 @@ class App(BaseHTTPRequestHandler):
         if local_path == "/":
             params = urllib.parse.parse_qs(parsed.query)
             msg = book.copy["sent_message"] if params.get("sent") else ""
+            if params.get("error") == ["empty"]:
+                msg = "Antes de enviar, deixe uma pista: escreva um recado, escolha uma foto, grave um áudio ou mande um vídeo."
             return self.html(public_home(book, msg))
         if path == "/admin":
             if is_admin(self.headers.get("Cookie")):
@@ -72,6 +74,10 @@ class App(BaseHTTPRequestHandler):
             return self.login(body)
         if path == "/admin/logout":
             return self.logout()
+        if path == "/admin/telegram/test":
+            if not is_admin(self.headers.get("Cookie")):
+                return self.html(admin_login(), HTTPStatus.UNAUTHORIZED)
+            return self.telegram_test()
         if path.startswith("/admin/book/"):
             if not is_admin(self.headers.get("Cookie")):
                 return self.html(admin_login(), HTTPStatus.UNAUTHORIZED)
@@ -111,7 +117,7 @@ class App(BaseHTTPRequestHandler):
         message = fields.get("message", "").strip()
         upload = first_upload(files, ("media_photo", "media_audio", "media_video"))
         if not message and not (upload and upload.data):
-            raise ValueError("Envie um texto, uma foto, um audio ou um video.")
+            return self.redirect(f"{book_url(book)}?error=empty")
         media_type, media_path, original_name = save_media(book, upload)
         visibility = fields.get("visibility", "public")
         if visibility not in {"public", "private"}:
@@ -178,6 +184,12 @@ class App(BaseHTTPRequestHandler):
         update = json.loads(body.decode("utf-8"))
         result = handle_update(update)
         self.json(result)
+
+    def telegram_test(self) -> None:
+        result = send_test_message()
+        if result.get("ok"):
+            return self.redirect("/admin?telegram=test-ok")
+        return self.redirect("/admin?telegram=test-failed")
 
     def file(self, path: Path, cache: bool = True) -> None:
         path = path.resolve()

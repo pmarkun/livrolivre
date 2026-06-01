@@ -36,6 +36,31 @@
         sendButton.textContent = readyLabel;
       }, waitSeconds * 1000);
     }
+
+    responseForm.addEventListener("submit", (event) => {
+      const text = responseForm.querySelector('textarea[name="message"]');
+      const fileInputs = Array.from(responseForm.querySelectorAll('input[type="file"]'));
+      const hasText = text && text.value.trim().length > 0;
+      const hasFile = fileInputs.some((input) => input.files && input.files.length > 0);
+      if (!hasText && !hasFile) {
+        event.preventDefault();
+        showFormMessage("Antes de enviar, deixe uma pista: escreva um recado, escolha uma foto, grave um áudio ou mande um vídeo.");
+        if (text) {
+          text.focus();
+        }
+      }
+    });
+  }
+
+  function showFormMessage(message) {
+    let box = responseForm.querySelector("[data-form-message]");
+    if (!box) {
+      box = document.createElement("p");
+      box.className = "form-message";
+      box.setAttribute("data-form-message", "");
+      responseForm.prepend(box);
+    }
+    box.textContent = message;
   }
 
   if (audioButton && navigator.mediaDevices && window.MediaRecorder) {

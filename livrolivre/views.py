@@ -7,7 +7,7 @@ from sqlite3 import Row
 from .books import BOOKS, Book, url as book_url
 from .database import admin_submissions, book_controls, comments_enabled, public_submissions, storage_status
 from .security import form_token
-from .settings import DEFAULT_BOOK_SLUG, FORM_MIN_AGE_SECONDS
+from .settings import DEFAULT_BOOK_SLUG, FORM_MIN_AGE_SECONDS, TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, TELEGRAM_WEBHOOK_SECRET
 
 
 def escape(value: object) -> str:
@@ -85,7 +85,7 @@ def public_home(book: Book, message: str = "") -> bytes:
             """
         )
     gallery = "\n".join(cards) or f'<p class="empty">{escape(copy["empty_gallery"])}</p>'
-    notice = f'<div class="notice">{escape(message)}</div>' if message else ""
+    notice = sent_notice(book, message)
     hero_image = f'<img src="{escape(book.cover_image)}" alt="" aria-hidden="true">' if book.cover_image else ""
     form = response_form(book, accepting_comments)
     content = f"""
@@ -110,10 +110,27 @@ def public_home(book: Book, message: str = "") -> bytes:
           <h2 id="gallery-title">{escape(copy["gallery_title"])}</h2>
           <div class="cards">{gallery}</div>
         </section>
+
+        <footer class="site-footer">
+          <a href="https://sabichinho.com.br" target="_blank" rel="noopener noreferrer">Sobre</a>
+          <p>Esta ferramenta do Sabichinho aproxima livros livres de seus leitores: cada QR Code abre um pequeno mural onde crianças e adultos podem devolver fotos, áudios, vídeos e impressões para os autores, sempre com moderação.</p>
+        </footer>
       </div>
     </main>
     """
     return page(f"{book.short_title} - Mural de Recados", content, book)
+
+
+def sent_notice(book: Book, message: str) -> str:
+    if not message:
+        return ""
+    title = book.copy.get("sent_title", "Recado enviado") if message == book.copy.get("sent_message") else "Ops, faltou a pista"
+    return f"""
+    <section class="notice sent-notice" aria-live="polite">
+      <strong>{escape(title)}</strong>
+      <p>{escape(message)}</p>
+    </section>
+    """
 
 
 def response_form(book: Book, accepting_comments: bool) -> str:
@@ -271,6 +288,7 @@ def admin_dashboard() -> bytes:
 def system_panel() -> str:
     status = storage_status()
     db_mtime = fmt_date(status["database_mtime"]) if status["database_mtime"] else "nunca"
+    telegram_ready = bool(TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID)
     return f"""
     <section class="control-panel system-panel" aria-labelledby="system-title">
       <h2 id="system-title">Sistema</h2>
@@ -280,7 +298,11 @@ def system_panel() -> str:
         <div><dt>Banco</dt><dd>{'existe' if status["database_exists"] else 'nao existe'} / {status["database_size"]} bytes / {db_mtime}</dd></div>
         <div><dt>Gravavel</dt><dd>{'sim' if status["data_dir_writable"] else 'nao'}</dd></div>
         <div><dt>Registros</dt><dd>{status["books_count"]} livros / {status["submissions_count"]} recados</dd></div>
+        <div><dt>Telegram</dt><dd>{'configurado' if telegram_ready else 'nao configurado'} / chat {escape(TELEGRAM_CHAT_ID or '-')} / secret {'sim' if TELEGRAM_WEBHOOK_SECRET else 'nao'}</dd></div>
       </dl>
+      <form class="inline-admin-form" method="post" action="/admin/telegram/test">
+        <button type="submit">Testar Telegram</button>
+      </form>
     </section>
     """
 
