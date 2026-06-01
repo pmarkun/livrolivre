@@ -8,6 +8,7 @@ from .books import BOOKS, Book, url as book_url
 from .database import admin_submissions, book_controls, comments_enabled, public_submissions, storage_status
 from .security import form_token
 from .settings import DEFAULT_BOOK_SLUG, FORM_MIN_AGE_SECONDS, TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, TELEGRAM_WEBHOOK_SECRET
+from .telegram import webhook_url
 
 
 def escape(value: object) -> str:
@@ -299,9 +300,13 @@ def system_panel() -> str:
         <div><dt>Gravavel</dt><dd>{'sim' if status["data_dir_writable"] else 'nao'}</dd></div>
         <div><dt>Registros</dt><dd>{status["books_count"]} livros / {status["submissions_count"]} recados</dd></div>
         <div><dt>Telegram</dt><dd>{'configurado' if telegram_ready else 'nao configurado'} / chat {escape(TELEGRAM_CHAT_ID or '-')} / secret {'sim' if TELEGRAM_WEBHOOK_SECRET else 'nao'}</dd></div>
+        <div><dt>Webhook esperado</dt><dd>{escape(webhook_url() or '-')}</dd></div>
       </dl>
       <form class="inline-admin-form" method="post" action="/admin/telegram/test">
         <button type="submit">Testar Telegram</button>
+      </form>
+      <form class="inline-admin-form" method="post" action="/admin/telegram/webhook">
+        <button type="submit">Registrar webhook</button>
       </form>
     </section>
     """

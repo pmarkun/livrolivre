@@ -8,7 +8,7 @@ from sqlite3 import Row
 
 from .books import Book, url as book_url
 from .database import moderate_submission, submission_with_book
-from .settings import PUBLIC_BASE_URL, TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, TELEGRAM_TIMEOUT_SECONDS
+from .settings import PUBLIC_BASE_URL, TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, TELEGRAM_TIMEOUT_SECONDS, TELEGRAM_WEBHOOK_SECRET
 
 
 ACTION_LABELS = {
@@ -21,6 +21,30 @@ ACTION_LABELS = {
 
 def enabled() -> bool:
     return bool(TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID)
+
+
+def webhook_url() -> str:
+    return f"{PUBLIC_BASE_URL}/telegram/webhook" if PUBLIC_BASE_URL else ""
+
+
+def ensure_webhook() -> dict:
+    if not TELEGRAM_BOT_TOKEN or not PUBLIC_BASE_URL:
+        return {"ok": False, "error": "missing_token_or_public_base_url"}
+    payload = {
+        "url": webhook_url(),
+        "allowed_updates": ["callback_query"],
+    }
+    if TELEGRAM_WEBHOOK_SECRET:
+        payload["secret_token"] = TELEGRAM_WEBHOOK_SECRET
+    result = api("setWebhook", payload)
+    print(f"Telegram webhook configurado: url={payload['url']} ok={result.get('ok')} result={result}")
+    return result
+
+
+def webhook_info() -> dict:
+    if not TELEGRAM_BOT_TOKEN:
+        return {"ok": False, "error": "missing_token"}
+    return api("getWebhookInfo", {})
 
 
 def notify_submission(submission_id: int, book: Book) -> None:
@@ -41,7 +65,7 @@ def send_test_message() -> dict:
         {
             "chat_id": TELEGRAM_CHAT_ID,
             "text": "Teste do Livro Livre: se esta mensagem chegou, o bot consegue enviar. Os botoes deste teste nao alteram recados reais.",
-            "reply_markup": keyboard(0),
+            "reply_markup": test_keyboard(),
         },
     )
 
@@ -61,6 +85,11 @@ def handle_update(update: dict) -> dict:
     if not action:
         answer_callback(callback.get("id"), "Acao desconhecida.")
         return {"ok": False, "error": "bad_callback"}
+    if action == "test":
+        answer_callback(callback.get("id"), "Callback funcionando")
+        edit_markup(message, f"{message.get('text', '')}\n\nStatus: Callback funcionando")
+        print("Telegram callback de teste aplicado")
+        return {"ok": True, "action": "test"}
     try:
         row = moderate_submission(submission_id, action)
     except ValueError:
@@ -132,12 +161,16 @@ def keyboard(submission_id: int) -> dict:
     }
 
 
+def test_keyboard() -> dict:
+    return {"inline_keyboard": [[{"text": "Testar callback", "callback_data": "ll:test:0"}]]}
+
+
 def parse_callback_data(data: str) -> tuple[str | None, int]:
     parts = data.split(":")
     if len(parts) != 3 or parts[0] != "ll":
         return None, 0
     action = parts[1]
-    if action not in ACTION_LABELS:
+    if action != "test" and action not in ACTION_LABELS:
         return None, 0
     try:
         return action, int(parts[2])

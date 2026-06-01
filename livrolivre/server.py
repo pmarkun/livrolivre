@@ -15,7 +15,7 @@ from .forms import parse_multipart, parse_urlencoded
 from .media import save_media
 from .security import ip_fingerprint, is_admin, sign_session, valid_form_token
 from .settings import ADMIN_PASSWORD, DEFAULT_BOOK_SLUG, MAX_UPLOAD_BYTES, ROOT, SESSION_COOKIE, TELEGRAM_WEBHOOK_SECRET, UPLOAD_DIR
-from .telegram import handle_update, notify_submission, send_test_message
+from .telegram import ensure_webhook, handle_update, notify_submission, send_test_message
 from .views import admin_dashboard, admin_login, error_page, public_home
 
 
@@ -78,6 +78,10 @@ class App(BaseHTTPRequestHandler):
             if not is_admin(self.headers.get("Cookie")):
                 return self.html(admin_login(), HTTPStatus.UNAUTHORIZED)
             return self.telegram_test()
+        if path == "/admin/telegram/webhook":
+            if not is_admin(self.headers.get("Cookie")):
+                return self.html(admin_login(), HTTPStatus.UNAUTHORIZED)
+            return self.telegram_register_webhook()
         if path.startswith("/admin/book/"):
             if not is_admin(self.headers.get("Cookie")):
                 return self.html(admin_login(), HTTPStatus.UNAUTHORIZED)
@@ -191,6 +195,12 @@ class App(BaseHTTPRequestHandler):
             return self.redirect("/admin?telegram=test-ok")
         return self.redirect("/admin?telegram=test-failed")
 
+    def telegram_register_webhook(self) -> None:
+        result = ensure_webhook()
+        if result.get("ok"):
+            return self.redirect("/admin?telegram=webhook-ok")
+        return self.redirect("/admin?telegram=webhook-failed")
+
     def file(self, path: Path, cache: bool = True) -> None:
         path = path.resolve()
         allowed_roots = [ROOT / "static", UPLOAD_DIR]
@@ -250,4 +260,5 @@ def run() -> None:
     status = storage_status()
     print(f"DATA_DIR={status['data_dir']}")
     print(f"DATABASE_PATH={status['database_path']} exists={status['database_exists']} size={status['database_size']}")
+    ensure_webhook()
     server.serve_forever()
