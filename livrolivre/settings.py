@@ -10,7 +10,7 @@ DATA_DIR = Path(os.environ.get("DATA_DIR", ROOT / "data"))
 UPLOAD_DIR = DATA_DIR / "uploads"
 DB_PATH = Path(os.environ.get("DATABASE_PATH", DATA_DIR / "livrolivre.sqlite3"))
 DEFAULT_BOOK_SLUG = os.environ.get("DEFAULT_BOOK_SLUG", "detetive-chapeuzinho")
-MAX_UPLOAD_BYTES = int(os.environ.get("MAX_UPLOAD_BYTES", str(40 * 1024 * 1024)))
+MAX_UPLOAD_BYTES = int(os.environ.get("MAX_UPLOAD_BYTES", str(100 * 1024 * 1024)))
 APP_SECRET = os.environ.get("APP_SECRET", "troque-este-segredo-no-railway")
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "chapeuzinho")
 SESSION_COOKIE = "ll_admin"
@@ -20,6 +20,10 @@ TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID", "")
 TELEGRAM_WEBHOOK_SECRET = os.environ.get("TELEGRAM_WEBHOOK_SECRET", "")
 TELEGRAM_TIMEOUT_SECONDS = int(os.environ.get("TELEGRAM_TIMEOUT_SECONDS", "8"))
+
+
+def upload_limit_mb() -> int:
+    return max(1, round(MAX_UPLOAD_BYTES / 1024 / 1024))
 
 ALLOWED_MEDIA_TYPES = {
     "image/jpeg": ("image", ".jpg"),

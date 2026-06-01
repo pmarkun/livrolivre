@@ -5,7 +5,7 @@ import secrets
 
 from .books import Book
 from .forms import UploadedFile
-from .settings import ALLOWED_MEDIA_TYPES, MAX_UPLOAD_BYTES, UPLOAD_DIR
+from .settings import ALLOWED_MEDIA_TYPES, MAX_UPLOAD_BYTES, UPLOAD_DIR, upload_limit_mb
 
 
 def save_media(book: Book, upload: UploadedFile | None) -> tuple[str | None, str | None, str | None]:
@@ -16,7 +16,7 @@ def save_media(book: Book, upload: UploadedFile | None) -> tuple[str | None, str
         raise ValueError("Envie imagem, video ou audio em um formato comum.")
     media_type, ext = kind_ext
     if len(upload.data) > MAX_UPLOAD_BYTES:
-        raise ValueError("O arquivo ficou grande demais. Tente gravar um recado menor.")
+        raise ValueError(f"O arquivo ficou grande demais. O limite atual e {upload_limit_mb()} MB.")
     digest = hashlib.sha256(upload.data + secrets.token_bytes(16)).hexdigest()[:24]
     filename = f"{book.slug}/{digest}{ext}"
     target = UPLOAD_DIR / filename

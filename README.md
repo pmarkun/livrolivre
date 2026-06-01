@@ -39,7 +39,7 @@ ao `book_id`.
 - `DATA_DIR`: pasta persistente para SQLite e uploads. Padrao: `./data`.
 - `DATABASE_PATH`: caminho do arquivo SQLite. Padrao: `./data/livrolivre.sqlite3`.
 - `DEFAULT_BOOK_SLUG`: livro padrao quando a URL nao explicita slug.
-- `MAX_UPLOAD_BYTES`: limite do arquivo enviado. Padrao: 40 MB.
+- `MAX_UPLOAD_BYTES`: limite do arquivo enviado. Padrao: 100 MB (`104857600` bytes).
 - `FORM_MIN_AGE_SECONDS`: tempo minimo antes de aceitar o envio. Padrao: 2.
 - `PUBLIC_BASE_URL`: URL publica do deploy, sem barra final. Exemplo: `https://livrolivre.sabichinho.com.br`.
 - `TELEGRAM_BOT_TOKEN`: token do bot criado no BotFather.
@@ -59,6 +59,9 @@ O formulario aceita:
 Os inputs usam `capture` para abrir camera/microfone em celulares quando o
 navegador permitir. O botao de gravar audio usa `MediaRecorder`; em producao,
 microfone e camera normalmente exigem HTTPS.
+
+Se `MAX_UPLOAD_BYTES` estiver configurado no Railway, esse valor sobrescreve o
+padrao do codigo. Para 100 MB, use `104857600`.
 
 ## Railway
 

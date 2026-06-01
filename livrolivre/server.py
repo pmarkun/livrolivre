@@ -14,7 +14,7 @@ from .database import book_id, comments_enabled, connect, init_db, moderate_subm
 from .forms import parse_multipart, parse_urlencoded
 from .media import save_media
 from .security import ip_fingerprint, is_admin, sign_session, valid_form_token
-from .settings import ADMIN_PASSWORD, DEFAULT_BOOK_SLUG, MAX_UPLOAD_BYTES, ROOT, SESSION_COOKIE, TELEGRAM_WEBHOOK_SECRET, UPLOAD_DIR
+from .settings import ADMIN_PASSWORD, DEFAULT_BOOK_SLUG, MAX_UPLOAD_BYTES, ROOT, SESSION_COOKIE, TELEGRAM_WEBHOOK_SECRET, UPLOAD_DIR, upload_limit_mb
 from .telegram import ensure_webhook, handle_update, notify_submission, send_test_message
 from .views import admin_dashboard, admin_login, error_page, public_home
 
@@ -64,7 +64,7 @@ class App(BaseHTTPRequestHandler):
         book, local_path = by_request_host_path(self.headers.get("Host", ""), path)
         length = int(self.headers.get("Content-Length", "0"))
         if length > MAX_UPLOAD_BYTES + 64_000:
-            raise ValueError("O recado ficou grande demais. Tente um arquivo menor.")
+            raise ValueError(f"O recado ficou grande demais. O limite atual e {upload_limit_mb()} MB.")
         body = self.rfile.read(length)
         if local_path == "/share":
             return self.share(book, body)
