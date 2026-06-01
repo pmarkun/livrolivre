@@ -14,6 +14,11 @@ MAX_UPLOAD_BYTES = int(os.environ.get("MAX_UPLOAD_BYTES", str(40 * 1024 * 1024))
 APP_SECRET = os.environ.get("APP_SECRET", "troque-este-segredo-no-railway")
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "chapeuzinho")
 SESSION_COOKIE = "ll_admin"
+PUBLIC_BASE_URL = os.environ.get("PUBLIC_BASE_URL", "").rstrip("/")
+TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
+TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID", "")
+TELEGRAM_WEBHOOK_SECRET = os.environ.get("TELEGRAM_WEBHOOK_SECRET", "")
+TELEGRAM_TIMEOUT_SECONDS = int(os.environ.get("TELEGRAM_TIMEOUT_SECONDS", "8"))
 
 ALLOWED_MEDIA_TYPES = {
     "image/jpeg": ("image", ".jpg"),

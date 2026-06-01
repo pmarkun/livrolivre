@@ -40,6 +40,11 @@ ao `book_id`.
 - `DATABASE_PATH`: caminho do arquivo SQLite. Padrao: `./data/livrolivre.sqlite3`.
 - `DEFAULT_BOOK_SLUG`: livro padrao quando a URL nao explicita slug.
 - `MAX_UPLOAD_BYTES`: limite do arquivo enviado. Padrao: 40 MB.
+- `PUBLIC_BASE_URL`: URL publica do deploy, sem barra final. Exemplo: `https://livrolivre.sabichinho.com.br`.
+- `TELEGRAM_BOT_TOKEN`: token do bot criado no BotFather.
+- `TELEGRAM_CHAT_ID`: chat, grupo ou canal que recebe os pedidos de moderacao.
+- `TELEGRAM_WEBHOOK_SECRET`: segredo enviado pelo Telegram no webhook.
+- `TELEGRAM_TIMEOUT_SECONDS`: timeout das chamadas para o Telegram. Padrao: 8.
 
 ## Midia
 
@@ -68,6 +73,51 @@ python3 app.py
 
 Por seguranca, rastros publicos ficam pendentes ate aprovacao. Rastros privados aparecem
 somente na moderacao.
+
+O painel `/admin` tambem tem um controle por livro para abrir ou fechar a caixa
+de recados temporariamente. Quando fechada, a pagina publica continua exibindo o
+mural, mas nao aceita novos envios.
+
+## Anti-spam simples
+
+Sem CAPTCHA por enquanto. A aplicacao usa duas barreiras leves contra bots
+automaticos:
+
+- um campo invisivel de honeypot que humanos nao preenchem
+- um token assinado com tempo minimo de permanencia no formulario
+
+Isso nao substitui rate limit de borda, mas segura parte do spam automatico sem
+atrapalhar criancas e leitores reais.
+
+## Telegram
+
+A moderacao por Telegram roda no mesmo servico web, sem outro deploy. Quando um
+recado chega, a aplicacao manda uma mensagem para `TELEGRAM_CHAT_ID` com botoes
+inline:
+
+- Aprovar
+- Esconder
+- Pendente
+- Apagar
+
+Para configurar:
+
+1. Crie um bot no Telegram pelo BotFather e copie o token para `TELEGRAM_BOT_TOKEN`.
+2. Envie uma mensagem para o bot, ou adicione o bot ao grupo de moderacao.
+3. Descubra o `chat_id` e coloque em `TELEGRAM_CHAT_ID`.
+4. Defina `PUBLIC_BASE_URL` com a URL do Railway ou do dominio final.
+5. Defina um valor aleatorio para `TELEGRAM_WEBHOOK_SECRET`.
+6. Registre o webhook:
+
+```bash
+curl "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/setWebhook" \
+  -d "url=$PUBLIC_BASE_URL/telegram/webhook" \
+  -d "secret_token=$TELEGRAM_WEBHOOK_SECRET"
+```
+
+O endpoint `/telegram/webhook` valida `X-Telegram-Bot-Api-Secret-Token` quando
+`TELEGRAM_WEBHOOK_SECRET` esta definido. As acoes do Telegram usam a mesma regra
+do painel `/admin`.
 
 ## Banco
 

@@ -1,20 +1,21 @@
 from __future__ import annotations
 
 import hmac
+import json
 import mimetypes
 import shutil
-import sqlite3
 import urllib.parse
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 from .books import BOOKS, Book, by_request_host_path, load_books, url as book_url
-from .database import book_id, connect, init_db, now
+from .database import book_id, comments_enabled, connect, init_db, moderate_submission, now, set_comments_enabled
 from .forms import parse_multipart, parse_urlencoded
 from .media import save_media
-from .security import ip_fingerprint, is_admin, sign_session
-from .settings import ADMIN_PASSWORD, DEFAULT_BOOK_SLUG, MAX_UPLOAD_BYTES, ROOT, SESSION_COOKIE, UPLOAD_DIR
+from .security import ip_fingerprint, is_admin, sign_session, valid_form_token
+from .settings import ADMIN_PASSWORD, DEFAULT_BOOK_SLUG, MAX_UPLOAD_BYTES, ROOT, SESSION_COOKIE, TELEGRAM_WEBHOOK_SECRET, UPLOAD_DIR
+from .telegram import handle_update, notify_submission
 from .views import admin_dashboard, admin_login, error_page, public_home
 
 
@@ -65,10 +66,16 @@ class App(BaseHTTPRequestHandler):
         body = self.rfile.read(length)
         if local_path == "/share":
             return self.share(book, body)
+        if path == "/telegram/webhook":
+            return self.telegram_webhook(body)
         if path == "/admin/login":
             return self.login(body)
         if path == "/admin/logout":
             return self.logout()
+        if path.startswith("/admin/book/"):
+            if not is_admin(self.headers.get("Cookie")):
+                return self.html(admin_login(), HTTPStatus.UNAUTHORIZED)
+            return self.book_control(path)
         if path.startswith("/admin/submission/"):
             if not is_admin(self.headers.get("Cookie")):
                 return self.html(admin_login(), HTTPStatus.UNAUTHORIZED)
@@ -92,7 +99,13 @@ class App(BaseHTTPRequestHandler):
         self.end_headers()
 
     def share(self, book: Book, body: bytes) -> None:
+        if not comments_enabled(book):
+            raise ValueError("A caixa de recados deste livro esta fechada por enquanto.")
         fields, files = parse_multipart(self.headers.get("Content-Type", ""), body)
+        if fields.get("website"):
+            raise ValueError("Nao foi possivel receber este recado.")
+        if not valid_form_token(book.slug, fields.get("form_token", "")):
+            raise ValueError("Abra a pagina novamente e tente enviar o recado mais uma vez.")
         if fields.get("consent") != "yes":
             raise ValueError("Confirme que voce tem autorizacao de um adulto.")
         message = fields.get("message", "").strip()
@@ -105,7 +118,7 @@ class App(BaseHTTPRequestHandler):
             visibility = "public"
         timestamp = now()
         with connect() as conn:
-            conn.execute(
+            cursor = conn.execute(
                 """
                 INSERT INTO submissions (
                     book_id, author_name, city, message, visibility, status, media_type,
@@ -127,6 +140,8 @@ class App(BaseHTTPRequestHandler):
                     ip_fingerprint(self.client_address[0]),
                 ),
             )
+            submission_id = int(cursor.lastrowid)
+        notify_submission(submission_id, book)
         self.redirect(f"{book_url(book)}?sent=1")
 
     def moderate(self, path: str) -> None:
@@ -135,19 +150,34 @@ class App(BaseHTTPRequestHandler):
             return self.error(HTTPStatus.NOT_FOUND, "Acao nao encontrada.")
         submission_id = int(parts[2])
         action = parts[3]
-        with connect() as conn:
-            row = conn.execute("SELECT * FROM submissions WHERE id = ?", (submission_id,)).fetchone()
-            if not row:
-                return self.error(HTTPStatus.NOT_FOUND, "Recado nao encontrado.")
-            if action == "delete":
-                conn.execute("DELETE FROM submissions WHERE id = ?", (submission_id,))
-                delete_media(row)
-            elif action in {"approve", "hide", "pending"}:
-                status = {"approve": "approved", "hide": "hidden", "pending": "pending"}[action]
-                conn.execute("UPDATE submissions SET status = ?, updated_at = ? WHERE id = ?", (status, now(), submission_id))
-            else:
-                return self.error(HTTPStatus.NOT_FOUND, "Acao nao encontrada.")
+        try:
+            row = moderate_submission(submission_id, action)
+        except ValueError:
+            return self.error(HTTPStatus.NOT_FOUND, "Acao nao encontrada.")
+        if not row:
+            return self.error(HTTPStatus.NOT_FOUND, "Recado nao encontrado.")
         self.redirect("/admin")
+
+    def book_control(self, path: str) -> None:
+        parts = path.strip("/").split("/")
+        if len(parts) != 5 or parts[0] != "admin" or parts[1] != "book" or parts[3] != "comments":
+            return self.error(HTTPStatus.NOT_FOUND, "Acao nao encontrada.")
+        slug = parts[2]
+        action = parts[4]
+        if action not in {"open", "close"}:
+            return self.error(HTTPStatus.NOT_FOUND, "Acao nao encontrada.")
+        if not set_comments_enabled(slug, action == "open"):
+            return self.error(HTTPStatus.NOT_FOUND, "Livro nao encontrado.")
+        self.redirect("/admin")
+
+    def telegram_webhook(self, body: bytes) -> None:
+        if TELEGRAM_WEBHOOK_SECRET:
+            header = self.headers.get("X-Telegram-Bot-Api-Secret-Token", "")
+            if header != TELEGRAM_WEBHOOK_SECRET:
+                return self.json({"ok": False, "error": "bad_secret"}, HTTPStatus.UNAUTHORIZED)
+        update = json.loads(body.decode("utf-8"))
+        result = handle_update(update)
+        self.json(result)
 
     def file(self, path: Path, cache: bool = True) -> None:
         path = path.resolve()
@@ -165,6 +195,14 @@ class App(BaseHTTPRequestHandler):
     def html(self, body: bytes, status: HTTPStatus = HTTPStatus.OK) -> None:
         self.send_response(status)
         self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def json(self, payload: dict, status: HTTPStatus = HTTPStatus.OK) -> None:
+        body = json.dumps(payload).encode("utf-8")
+        self.send_response(status)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
         self.wfile.write(body)
@@ -187,12 +225,6 @@ def first_upload(files: dict, names: tuple[str, ...]):
         if upload and upload.filename and upload.data:
             return upload
     return None
-
-
-def delete_media(row: sqlite3.Row) -> None:
-    for column in ("media_path", "image_path"):
-        if row[column]:
-            (UPLOAD_DIR / row[column]).unlink(missing_ok=True)
 
 
 def run() -> None:

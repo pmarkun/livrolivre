@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+import time
 from http.cookies import SimpleCookie
 
 from .settings import APP_SECRET, SESSION_COOKIE
@@ -34,3 +35,26 @@ def is_admin(cookie_header: str | None) -> bool:
 
 def ip_fingerprint(ip: str) -> str:
     return hashlib.sha256(f"{APP_SECRET}:{ip}".encode()).hexdigest()[:16]
+
+
+def form_token(book_slug: str, timestamp: int | None = None) -> str:
+    timestamp = timestamp or int(time.time())
+    value = f"{book_slug}:{timestamp}"
+    sig = hmac.new(APP_SECRET.encode(), value.encode(), hashlib.sha256).hexdigest()
+    return f"{timestamp}.{sig}"
+
+
+def valid_form_token(book_slug: str, token: str, min_age: int = 2, max_age: int = 60 * 60 * 24) -> bool:
+    if not token or "." not in token:
+        return False
+    raw_ts, sig = token.rsplit(".", 1)
+    try:
+        timestamp = int(raw_ts)
+    except ValueError:
+        return False
+    value = f"{book_slug}:{timestamp}"
+    expected = hmac.new(APP_SECRET.encode(), value.encode(), hashlib.sha256).hexdigest()
+    if not hmac.compare_digest(sig, expected):
+        return False
+    age = int(time.time()) - timestamp
+    return min_age <= age <= max_age

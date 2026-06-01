@@ -279,6 +279,14 @@ button:focus {
   display: none;
 }
 
+.trap-field {
+  position: absolute;
+  left: -10000px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+
 fieldset {
   display: grid;
   gap: 10px;
@@ -473,6 +481,48 @@ button:hover {
   font-weight: 750;
 }
 
+.control-panel {
+  margin: 0 0 18px;
+  padding: 18px;
+  border: 2px solid var(--line);
+  border-radius: 22px;
+  background: rgba(255, 250, 240, .84);
+}
+
+.control-panel h2 {
+  font-size: clamp(1.8rem, 6vw, 3rem);
+}
+
+.control-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.control-card {
+  display: grid;
+  gap: 12px;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 12px;
+  background: rgba(255, 255, 255, .42);
+}
+
+.control-card div {
+  display: grid;
+  gap: 4px;
+}
+
+.control-card span {
+  color: var(--muted);
+  font-size: .92rem;
+}
+
+.control-card form {
+  margin: 0;
+}
+
 .mod-list {
   display: grid;
   gap: 14px;
@@ -569,6 +619,10 @@ button:hover {
 
   .cards {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .control-card {
+    grid-template-columns: 1fr auto;
   }
 
   .mod-card {

@@ -5,7 +5,8 @@ import time
 from sqlite3 import Row
 
 from .books import BOOKS, Book, url as book_url
-from .database import admin_submissions, public_submissions
+from .database import admin_submissions, book_controls, comments_enabled, public_submissions
+from .security import form_token
 from .settings import DEFAULT_BOOK_SLUG
 
 
@@ -67,6 +68,7 @@ def media_html(row: Row) -> str:
 
 def public_home(book: Book, message: str = "") -> bytes:
     copy = book.copy
+    accepting_comments = comments_enabled(book)
     cards = []
     for row in public_submissions(book):
         where = f'<span>{escape(row["city"])}</span>' if row["city"] else ""
@@ -85,6 +87,7 @@ def public_home(book: Book, message: str = "") -> bytes:
     gallery = "\n".join(cards) or f'<p class="empty">{escape(copy["empty_gallery"])}</p>'
     notice = f'<div class="notice">{escape(message)}</div>' if message else ""
     hero_image = f'<img src="{escape(book.cover_image)}" alt="" aria-hidden="true">' if book.cover_image else ""
+    form = response_form(book, accepting_comments)
     content = f"""
     <main class="book-page">
       <section class="welcome">
@@ -101,61 +104,7 @@ def public_home(book: Book, message: str = "") -> bytes:
       <div class="shell">
         {notice}
 
-        <section class="message-board" aria-labelledby="form-title">
-          <h2 id="form-title">{escape(copy["form_title"])}</h2>
-          <form method="post" action="{escape(book_url(book, '/share'))}" enctype="multipart/form-data">
-            <div class="type-picker" role="group" aria-label="Tipo de recado">
-              <button class="type-button active" type="button" data-kind="text" aria-pressed="true"><span aria-hidden="true">T</span>Texto</button>
-              <button class="type-button" type="button" data-kind="photo" aria-pressed="false"><span aria-hidden="true">◐</span>Foto</button>
-              <button class="type-button" type="button" data-kind="audio" aria-pressed="false"><span aria-hidden="true">♪</span>Audio</button>
-              <button class="type-button" type="button" data-kind="video" aria-pressed="false"><span aria-hidden="true">▣</span>Video</button>
-            </div>
-
-            <div class="field-row">
-              <label>{escape(copy["name_label"])}
-                <input name="author_name" maxlength="80" autocomplete="name" placeholder="{escape(copy["name_placeholder"])}">
-              </label>
-              <label>{escape(copy["city_label"])}
-                <input name="city" maxlength="80" autocomplete="address-level2" placeholder="{escape(copy["city_placeholder"])}">
-              </label>
-            </div>
-
-            <label class="message-field" data-panel="text">{escape(copy["message_label"])}
-              <textarea name="message" maxlength="900" rows="5" placeholder="{escape(copy["message_placeholder"])}"></textarea>
-            </label>
-
-            <div class="upload-panel hidden" data-panel="photo">
-              <label>{escape(copy["photo_label"])}
-                <input type="file" name="media_photo" accept="image/png,image/jpeg,image/webp,image/gif" capture="environment">
-              </label>
-            </div>
-
-            <div class="upload-panel hidden" data-panel="audio">
-              <label>{escape(copy["audio_label"])}
-                <input type="file" name="media_audio" accept="audio/*" capture>
-              </label>
-              <div class="recorder" data-recorder>
-                <button type="button" class="ghost-button" data-record-audio>Gravar audio</button>
-                <span data-record-status>Se o navegador deixar, o microfone abre por aqui.</span>
-              </div>
-            </div>
-
-            <div class="upload-panel hidden" data-panel="video">
-              <label>{escape(copy["video_label"])}
-                <input type="file" name="media_video" accept="video/*" capture="user">
-              </label>
-            </div>
-
-            <fieldset class="publish-choice">
-              <legend>{escape(copy["visibility_legend"])}</legend>
-              <label class="choice"><input type="radio" name="visibility" value="public" checked> {escape(copy["public_label"])}</label>
-              <label class="choice"><input type="radio" name="visibility" value="private"> {escape(copy["private_label"])}</label>
-            </fieldset>
-
-            <label class="choice consent"><input type="checkbox" name="consent" value="yes" required> {escape(copy["consent"])}</label>
-            <button class="send-button" type="submit">{escape(copy["submit_label"])}</button>
-          </form>
-        </section>
+        {form}
 
         <section class="gallery" aria-labelledby="gallery-title">
           <h2 id="gallery-title">{escape(copy["gallery_title"])}</h2>
@@ -165,6 +114,79 @@ def public_home(book: Book, message: str = "") -> bytes:
     </main>
     """
     return page(f"{book.short_title} - Mural de Recados", content, book)
+
+
+def response_form(book: Book, accepting_comments: bool) -> str:
+    copy = book.copy
+    if not accepting_comments:
+        return f"""
+        <section class="message-board closed-board" aria-labelledby="form-title">
+          <h2 id="form-title">{escape(copy["form_title"])}</h2>
+          <p class="empty">A caixa de recados esta fechada por enquanto. O mural continua aberto para leitura.</p>
+        </section>
+        """
+    return f"""
+    <section class="message-board" aria-labelledby="form-title">
+      <h2 id="form-title">{escape(copy["form_title"])}</h2>
+      <form method="post" action="{escape(book_url(book, '/share'))}" enctype="multipart/form-data">
+        <input type="hidden" name="form_token" value="{escape(form_token(book.slug))}">
+        <label class="trap-field">Nao preencha este campo
+          <input name="website" tabindex="-1" autocomplete="off">
+        </label>
+
+        <div class="type-picker" role="group" aria-label="Tipo de recado">
+          <button class="type-button active" type="button" data-kind="text" aria-pressed="true"><span aria-hidden="true">T</span>Texto</button>
+          <button class="type-button" type="button" data-kind="photo" aria-pressed="false"><span aria-hidden="true">◐</span>Foto</button>
+          <button class="type-button" type="button" data-kind="audio" aria-pressed="false"><span aria-hidden="true">♪</span>Audio</button>
+          <button class="type-button" type="button" data-kind="video" aria-pressed="false"><span aria-hidden="true">▣</span>Video</button>
+        </div>
+
+        <div class="field-row">
+          <label>{escape(copy["name_label"])}
+            <input name="author_name" maxlength="80" autocomplete="name" placeholder="{escape(copy["name_placeholder"])}">
+          </label>
+          <label>{escape(copy["city_label"])}
+            <input name="city" maxlength="80" autocomplete="address-level2" placeholder="{escape(copy["city_placeholder"])}">
+          </label>
+        </div>
+
+        <label class="message-field" data-panel="text">{escape(copy["message_label"])}
+          <textarea name="message" maxlength="900" rows="5" placeholder="{escape(copy["message_placeholder"])}"></textarea>
+        </label>
+
+        <div class="upload-panel hidden" data-panel="photo">
+          <label>{escape(copy["photo_label"])}
+            <input type="file" name="media_photo" accept="image/png,image/jpeg,image/webp,image/gif" capture="environment">
+          </label>
+        </div>
+
+        <div class="upload-panel hidden" data-panel="audio">
+          <label>{escape(copy["audio_label"])}
+            <input type="file" name="media_audio" accept="audio/*" capture>
+          </label>
+          <div class="recorder" data-recorder>
+            <button type="button" class="ghost-button" data-record-audio>Gravar audio</button>
+            <span data-record-status>Se o navegador deixar, o microfone abre por aqui.</span>
+          </div>
+        </div>
+
+        <div class="upload-panel hidden" data-panel="video">
+          <label>{escape(copy["video_label"])}
+            <input type="file" name="media_video" accept="video/*" capture="user">
+          </label>
+        </div>
+
+        <fieldset class="publish-choice">
+          <legend>{escape(copy["visibility_legend"])}</legend>
+          <label class="choice"><input type="radio" name="visibility" value="public" checked> {escape(copy["public_label"])}</label>
+          <label class="choice"><input type="radio" name="visibility" value="private"> {escape(copy["private_label"])}</label>
+        </fieldset>
+
+        <label class="choice consent"><input type="checkbox" name="consent" value="yes" required> {escape(copy["consent"])}</label>
+        <button class="send-button" type="submit">{escape(copy["submit_label"])}</button>
+      </form>
+    </section>
+    """
 
 
 def admin_login(error: str = "") -> bytes:
@@ -193,6 +215,7 @@ def admin_login(error: str = "") -> bytes:
 
 
 def admin_dashboard() -> bytes:
+    controls = admin_controls()
     items = []
     for row in admin_submissions():
         visibility = "publico" if row["visibility"] == "public" else "so autores"
@@ -234,12 +257,41 @@ def admin_dashboard() -> bytes:
             </div>
             <form method="post" action="/admin/logout"><button type="submit">Sair</button></form>
           </nav>
+          {controls}
           <section class="mod-list">{listing}</section>
         </main>
         """,
         BOOKS[DEFAULT_BOOK_SLUG],
         "admin",
     )
+
+
+def admin_controls() -> str:
+    rows = []
+    for row in book_controls():
+        enabled = bool(row["comments_enabled"])
+        action = "close" if enabled else "open"
+        label = "Fechar recados" if enabled else "Abrir recados"
+        status = "Recebendo recados" if enabled else "Recados fechados"
+        rows.append(
+            f"""
+            <article class="control-card">
+              <div>
+                <strong>{escape(row["title"])}</strong>
+                <span>{status}</span>
+              </div>
+              <form method="post" action="/admin/book/{escape(row["slug"])}/comments/{action}">
+                <button type="submit">{label}</button>
+              </form>
+            </article>
+            """
+        )
+    return f"""
+    <section class="control-panel" aria-labelledby="control-title">
+      <h2 id="control-title">Controle dos livros</h2>
+      <div class="control-list">{''.join(rows)}</div>
+    </section>
+    """
 
 
 def error_page(message: str, book: Book | None) -> bytes:

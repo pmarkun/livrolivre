@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import sqlite3
 import time
+from pathlib import Path
 
 from .books import BOOKS, Book
 from .settings import DATA_DIR, DB_PATH, UPLOAD_DIR
@@ -29,11 +30,13 @@ def init_db() -> None:
                 slug TEXT NOT NULL UNIQUE,
                 title TEXT NOT NULL,
                 config_json TEXT NOT NULL,
+                comments_enabled INTEGER NOT NULL DEFAULT 1,
                 created_at INTEGER NOT NULL,
                 updated_at INTEGER NOT NULL
             )
             """
         )
+        migrate_books(conn)
         conn.execute(
             """
             CREATE TABLE IF NOT EXISTS submissions (
@@ -87,6 +90,12 @@ def migrate_submissions(conn: sqlite3.Connection) -> None:
     )
 
 
+def migrate_books(conn: sqlite3.Connection) -> None:
+    columns = {row["name"] for row in conn.execute("PRAGMA table_info(books)").fetchall()}
+    if "comments_enabled" not in columns:
+        conn.execute("ALTER TABLE books ADD COLUMN comments_enabled INTEGER NOT NULL DEFAULT 1")
+
+
 def sync_books(conn: sqlite3.Connection) -> None:
     timestamp = now()
     for book in BOOKS.values():
@@ -106,8 +115,8 @@ def sync_books(conn: sqlite3.Connection) -> None:
         )
         conn.execute(
             """
-            INSERT INTO books (slug, title, config_json, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?)
+            INSERT INTO books (slug, title, config_json, comments_enabled, created_at, updated_at)
+            VALUES (?, ?, ?, 1, ?, ?)
             ON CONFLICT(slug) DO UPDATE SET title = excluded.title,
                 config_json = excluded.config_json, updated_at = excluded.updated_at
             """,
@@ -135,6 +144,32 @@ def public_submissions(book: Book) -> list[sqlite3.Row]:
         ).fetchall()
 
 
+def book_controls() -> list[sqlite3.Row]:
+    with connect() as conn:
+        return conn.execute(
+            """
+            SELECT id, slug, title, comments_enabled
+            FROM books
+            ORDER BY title
+            """
+        ).fetchall()
+
+
+def comments_enabled(book: Book) -> bool:
+    with connect() as conn:
+        row = conn.execute("SELECT comments_enabled FROM books WHERE slug = ?", (book.slug,)).fetchone()
+    return bool(row["comments_enabled"]) if row else True
+
+
+def set_comments_enabled(slug: str, enabled: bool) -> bool:
+    with connect() as conn:
+        cursor = conn.execute(
+            "UPDATE books SET comments_enabled = ?, updated_at = ? WHERE slug = ?",
+            (1 if enabled else 0, now(), slug),
+        )
+    return cursor.rowcount > 0
+
+
 def admin_submissions() -> list[sqlite3.Row]:
     with connect() as conn:
         return conn.execute(
@@ -145,3 +180,40 @@ def admin_submissions() -> list[sqlite3.Row]:
             ORDER BY s.created_at DESC LIMIT 500
             """
         ).fetchall()
+
+
+def submission_with_book(submission_id: int) -> sqlite3.Row | None:
+    with connect() as conn:
+        return conn.execute(
+            """
+            SELECT s.*, b.slug AS book_slug, b.title AS book_title
+            FROM submissions s
+            JOIN books b ON b.id = s.book_id
+            WHERE s.id = ?
+            """,
+            (submission_id,),
+        ).fetchone()
+
+
+def moderate_submission(submission_id: int, action: str) -> sqlite3.Row | None:
+    with connect() as conn:
+        row = conn.execute("SELECT * FROM submissions WHERE id = ?", (submission_id,)).fetchone()
+        if not row:
+            return None
+        if action == "delete":
+            conn.execute("DELETE FROM submissions WHERE id = ?", (submission_id,))
+            delete_media_files(row)
+        elif action in {"approve", "hide", "pending"}:
+            status = {"approve": "approved", "hide": "hidden", "pending": "pending"}[action]
+            conn.execute("UPDATE submissions SET status = ?, updated_at = ? WHERE id = ?", (status, now(), submission_id))
+        else:
+            raise ValueError("Acao nao encontrada.")
+    return row
+
+
+def delete_media_files(row: sqlite3.Row) -> None:
+    for column in ("media_path", "image_path"):
+        if row[column]:
+            path = (UPLOAD_DIR / row[column]).resolve()
+            if str(path).startswith(str(UPLOAD_DIR.resolve())):
+                Path(path).unlink(missing_ok=True)
