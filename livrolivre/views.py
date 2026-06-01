@@ -7,7 +7,7 @@ from sqlite3 import Row
 from .books import BOOKS, Book, url as book_url
 from .database import admin_submissions, book_controls, comments_enabled, public_submissions
 from .security import form_token
-from .settings import DEFAULT_BOOK_SLUG
+from .settings import DEFAULT_BOOK_SLUG, FORM_MIN_AGE_SECONDS
 
 
 def escape(value: object) -> str:
@@ -128,7 +128,7 @@ def response_form(book: Book, accepting_comments: bool) -> str:
     return f"""
     <section class="message-board" aria-labelledby="form-title">
       <h2 id="form-title">{escape(copy["form_title"])}</h2>
-      <form method="post" action="{escape(book_url(book, '/share'))}" enctype="multipart/form-data">
+      <form method="post" action="{escape(book_url(book, '/share'))}" enctype="multipart/form-data" data-min-age="{FORM_MIN_AGE_SECONDS}">
         <input type="hidden" name="form_token" value="{escape(form_token(book.slug))}">
         <label class="trap-field">Nao preencha este campo
           <input name="website" tabindex="-1" autocomplete="off">
@@ -183,7 +183,7 @@ def response_form(book: Book, accepting_comments: bool) -> str:
         </fieldset>
 
         <label class="choice consent"><input type="checkbox" name="consent" value="yes" required> {escape(copy["consent"])}</label>
-        <button class="send-button" type="submit">{escape(copy["submit_label"])}</button>
+        <button class="send-button" type="submit" data-ready-label="{escape(copy["submit_label"])}">{escape(copy["submit_label"])}</button>
       </form>
     </section>
     """

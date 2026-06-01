@@ -4,6 +4,8 @@
   const textPanel = document.querySelector(".message-field");
   const audioButton = document.querySelector("[data-record-audio]");
   const audioStatus = document.querySelector("[data-record-status]");
+  const responseForm = document.querySelector("form[data-min-age]");
+  const sendButton = responseForm ? responseForm.querySelector(".send-button") : null;
   let recorder = null;
   let chunks = [];
 
@@ -22,6 +24,19 @@
   buttons.forEach((button) => {
     button.addEventListener("click", () => setKind(button.dataset.kind));
   });
+
+  if (responseForm && sendButton) {
+    const waitSeconds = Number(responseForm.dataset.minAge || "0");
+    if (waitSeconds > 0) {
+      const readyLabel = sendButton.dataset.readyLabel || sendButton.textContent;
+      sendButton.disabled = true;
+      sendButton.textContent = "Só um instantinho...";
+      window.setTimeout(() => {
+        sendButton.disabled = false;
+        sendButton.textContent = readyLabel;
+      }, waitSeconds * 1000);
+    }
+  }
 
   if (audioButton && navigator.mediaDevices && window.MediaRecorder) {
     audioButton.addEventListener("click", async () => {

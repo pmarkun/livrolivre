@@ -5,7 +5,7 @@ import hmac
 import time
 from http.cookies import SimpleCookie
 
-from .settings import APP_SECRET, SESSION_COOKIE
+from .settings import APP_SECRET, FORM_MIN_AGE_SECONDS, SESSION_COOKIE
 
 
 def parse_cookies(header: str | None) -> dict[str, str]:
@@ -44,7 +44,7 @@ def form_token(book_slug: str, timestamp: int | None = None) -> str:
     return f"{timestamp}.{sig}"
 
 
-def valid_form_token(book_slug: str, token: str, min_age: int = 2, max_age: int = 60 * 60 * 24) -> bool:
+def valid_form_token(book_slug: str, token: str, min_age: int = FORM_MIN_AGE_SECONDS, max_age: int = 60 * 60 * 24) -> bool:
     if not token or "." not in token:
         return False
     raw_ts, sig = token.rsplit(".", 1)

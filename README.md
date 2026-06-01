@@ -40,6 +40,7 @@ ao `book_id`.
 - `DATABASE_PATH`: caminho do arquivo SQLite. Padrao: `./data/livrolivre.sqlite3`.
 - `DEFAULT_BOOK_SLUG`: livro padrao quando a URL nao explicita slug.
 - `MAX_UPLOAD_BYTES`: limite do arquivo enviado. Padrao: 40 MB.
+- `FORM_MIN_AGE_SECONDS`: tempo minimo antes de aceitar o envio. Padrao: 2.
 - `PUBLIC_BASE_URL`: URL publica do deploy, sem barra final. Exemplo: `https://livrolivre.sabichinho.com.br`.
 - `TELEGRAM_BOT_TOKEN`: token do bot criado no BotFather.
 - `TELEGRAM_CHAT_ID`: chat, grupo ou canal que recebe os pedidos de moderacao.

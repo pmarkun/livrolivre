@@ -336,6 +336,12 @@ button:hover {
   filter: brightness(.98);
 }
 
+button:disabled {
+  cursor: wait;
+  filter: saturate(.72);
+  opacity: .72;
+}
+
 .ghost-button {
   color: var(--red-dark);
   background: #fffaf0;
