@@ -505,6 +505,32 @@ button:disabled {
   margin-top: 14px;
 }
 
+.system-list {
+  display: grid;
+  gap: 8px;
+  margin: 14px 0 0;
+}
+
+.system-list div {
+  display: grid;
+  gap: 3px;
+  overflow-wrap: anywhere;
+}
+
+.system-list dt {
+  color: var(--muted);
+  font-size: .78rem;
+  font-weight: 900;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+
+.system-list dd {
+  margin: 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: .88rem;
+}
+
 .control-card {
   display: grid;
   gap: 12px;

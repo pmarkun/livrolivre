@@ -10,7 +10,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 from .books import BOOKS, Book, by_request_host_path, load_books, url as book_url
-from .database import book_id, comments_enabled, connect, init_db, moderate_submission, now, set_comments_enabled
+from .database import book_id, comments_enabled, connect, init_db, moderate_submission, now, set_comments_enabled, storage_status
 from .forms import parse_multipart, parse_urlencoded
 from .media import save_media
 from .security import ip_fingerprint, is_admin, sign_session, valid_form_token
@@ -235,4 +235,7 @@ def run() -> None:
     port = int(os.environ.get("PORT", "8000"))
     server = ThreadingHTTPServer(("0.0.0.0", port), App)
     print(f"Livro Livre ouvindo em http://0.0.0.0:{port}")
+    status = storage_status()
+    print(f"DATA_DIR={status['data_dir']}")
+    print(f"DATABASE_PATH={status['database_path']} exists={status['database_exists']} size={status['database_size']}")
     server.serve_forever()

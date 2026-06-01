@@ -5,7 +5,7 @@ import time
 from sqlite3 import Row
 
 from .books import BOOKS, Book, url as book_url
-from .database import admin_submissions, book_controls, comments_enabled, public_submissions
+from .database import admin_submissions, book_controls, comments_enabled, public_submissions, storage_status
 from .security import form_token
 from .settings import DEFAULT_BOOK_SLUG, FORM_MIN_AGE_SECONDS
 
@@ -216,6 +216,7 @@ def admin_login(error: str = "") -> bytes:
 
 def admin_dashboard() -> bytes:
     controls = admin_controls()
+    system = system_panel()
     items = []
     for row in admin_submissions():
         visibility = "publico" if row["visibility"] == "public" else "so autores"
@@ -257,6 +258,7 @@ def admin_dashboard() -> bytes:
             </div>
             <form method="post" action="/admin/logout"><button type="submit">Sair</button></form>
           </nav>
+          {system}
           {controls}
           <section class="mod-list">{listing}</section>
         </main>
@@ -264,6 +266,23 @@ def admin_dashboard() -> bytes:
         BOOKS[DEFAULT_BOOK_SLUG],
         "admin",
     )
+
+
+def system_panel() -> str:
+    status = storage_status()
+    db_mtime = fmt_date(status["database_mtime"]) if status["database_mtime"] else "nunca"
+    return f"""
+    <section class="control-panel system-panel" aria-labelledby="system-title">
+      <h2 id="system-title">Sistema</h2>
+      <dl class="system-list">
+        <div><dt>DATA_DIR</dt><dd>{escape(status["data_dir"])}</dd></div>
+        <div><dt>DATABASE_PATH</dt><dd>{escape(status["database_path"])}</dd></div>
+        <div><dt>Banco</dt><dd>{'existe' if status["database_exists"] else 'nao existe'} / {status["database_size"]} bytes / {db_mtime}</dd></div>
+        <div><dt>Gravavel</dt><dd>{'sim' if status["data_dir_writable"] else 'nao'}</dd></div>
+        <div><dt>Registros</dt><dd>{status["books_count"]} livros / {status["submissions_count"]} recados</dd></div>
+      </dl>
+    </section>
+    """
 
 
 def admin_controls() -> str:

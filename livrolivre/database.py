@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import sqlite3
 import time
 from pathlib import Path
@@ -19,6 +20,35 @@ def connect() -> sqlite3.Connection:
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     return conn
+
+
+def storage_status() -> dict[str, object]:
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+    writable = False
+    probe = DATA_DIR / ".write-test"
+    try:
+        probe.write_text("ok", encoding="utf-8")
+        writable = probe.read_text(encoding="utf-8") == "ok"
+        probe.unlink(missing_ok=True)
+    except OSError:
+        writable = False
+    with connect() as conn:
+        books_count = conn.execute("SELECT COUNT(*) FROM books").fetchone()[0]
+        submissions_count = conn.execute("SELECT COUNT(*) FROM submissions").fetchone()[0]
+    stat = DB_PATH.stat() if DB_PATH.exists() else None
+    return {
+        "data_dir": str(DATA_DIR),
+        "upload_dir": str(UPLOAD_DIR),
+        "database_path": str(DB_PATH),
+        "database_exists": DB_PATH.exists(),
+        "database_size": stat.st_size if stat else 0,
+        "database_mtime": int(stat.st_mtime) if stat else None,
+        "data_dir_writable": writable,
+        "books_count": books_count,
+        "submissions_count": submissions_count,
+        "cwd": os.getcwd(),
+    }
 
 
 def init_db() -> None:
