@@ -55,6 +55,7 @@ def notify_submission(submission_id: int, book: Book) -> None:
         return
     text = submission_text(row, book)
     api("sendMessage", {"chat_id": TELEGRAM_CHAT_ID, "text": text, "reply_markup": keyboard(submission_id)})
+    send_media(row)
 
 
 def send_test_message() -> dict:
@@ -144,6 +145,31 @@ def submission_links(row: Row, book: Book) -> list[str]:
     if media_path:
         links.append(f"Midia: {PUBLIC_BASE_URL}/uploads/{media_path}")
     return links
+
+
+def media_url(row: Row) -> str:
+    media_path = row["media_path"] or row["image_path"]
+    if not PUBLIC_BASE_URL or not media_path:
+        return ""
+    return f"{PUBLIC_BASE_URL}/uploads/{media_path}"
+
+
+def send_media(row: Row) -> None:
+    url = media_url(row)
+    if not enabled() or not url:
+        return
+    media_type = row["media_type"] or ("image" if row["image_path"] else "")
+    caption = f"Recado #{row['id']}"
+    if media_type == "image":
+        api("sendPhoto", {"chat_id": TELEGRAM_CHAT_ID, "photo": url, "caption": caption})
+    elif media_type == "audio":
+        if str(row["media_path"] or "").lower().endswith(".ogg"):
+            result = api("sendVoice", {"chat_id": TELEGRAM_CHAT_ID, "voice": url, "caption": caption})
+            if result.get("ok"):
+                return
+        result = api("sendAudio", {"chat_id": TELEGRAM_CHAT_ID, "audio": url, "caption": caption})
+        if not result.get("ok"):
+            api("sendDocument", {"chat_id": TELEGRAM_CHAT_ID, "document": url, "caption": f"{caption} (audio)"})
 
 
 def keyboard(submission_id: int) -> dict:

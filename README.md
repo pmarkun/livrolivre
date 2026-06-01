@@ -1,6 +1,6 @@
 # Livro Livre - Rastros dos leitores
 
-Micro pagina mobile first para leitores enviarem texto, foto, audio ou video
+Micro pagina mobile first para leitores enviarem texto, foto ou audio
 sobre livros distribuidos pelo Livro Livre.
 
 O primeiro livro configurado e *Detetive Chapeuzinho e o Misterio da Sombra
@@ -53,12 +53,15 @@ O formulario aceita:
 
 - texto livre
 - imagem: JPG, PNG, WebP, GIF
-- video: MP4, WebM, MOV
 - audio: MP3, M4A, WAV, WebM, OGG
 
 Os inputs usam `capture` para abrir camera/microfone em celulares quando o
 navegador permitir. O botao de gravar audio usa `MediaRecorder`; em producao,
 microfone e camera normalmente exigem HTTPS.
+
+Quando `ffmpeg` esta disponivel, audios enviados sao convertidos no backend para
+OGG/Opus mono, comprimidos para voz e enviados ao Telegram como mensagem de voz.
+O `nixpacks.toml` inclui `ffmpeg` para o deploy no Railway.
 
 Se `MAX_UPLOAD_BYTES` estiver configurado no Railway, esse valor sobrescreve o
 padrao do codigo. Para 100 MB, use `104857600`.

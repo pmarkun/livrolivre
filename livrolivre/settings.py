@@ -20,6 +20,7 @@ TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID", "")
 TELEGRAM_WEBHOOK_SECRET = os.environ.get("TELEGRAM_WEBHOOK_SECRET", "")
 TELEGRAM_TIMEOUT_SECONDS = int(os.environ.get("TELEGRAM_TIMEOUT_SECONDS", "8"))
+ASSET_VERSION = os.environ.get("ASSET_VERSION", "20260601-camera-modal")
 
 
 def upload_limit_mb() -> int:
@@ -30,9 +31,6 @@ ALLOWED_MEDIA_TYPES = {
     "image/png": ("image", ".png"),
     "image/webp": ("image", ".webp"),
     "image/gif": ("image", ".gif"),
-    "video/mp4": ("video", ".mp4"),
-    "video/webm": ("video", ".webm"),
-    "video/quicktime": ("video", ".mov"),
     "audio/mpeg": ("audio", ".mp3"),
     "audio/mp4": ("audio", ".m4a"),
     "audio/wav": ("audio", ".wav"),

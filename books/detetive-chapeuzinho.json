@@ -32,7 +32,6 @@
     "message_placeholder": "O que você achou? Qual personagem ficou na sua cabeça?",
     "photo_label": "Tirar ou escolher foto",
     "audio_label": "Gravar ou escolher áudio",
-    "video_label": "Gravar ou escolher vídeo",
     "visibility_legend": "Posso publicar seu recado no meu mural?",
     "public_label": "Sim.",
     "private_label": "Não, é só pra você!",
@@ -41,6 +40,6 @@
     "gallery_title": "Mural de Recados da Chapeuzinho",
     "empty_gallery": "O mural ainda está esperando o primeiro bilhete.",
     "sent_title": "Pista enviada!",
-    "sent_message": "Agora uma dica de detetive: quando você manda uma foto, áudio, vídeo ou texto pela internet, deixa um pequeno rastro digital. Antes de compartilhar qualquer coisa, combine com um adulto e pense: eu ficaria bem se outras pessoas vissem isso? A Chapeuzinho aprendeu que cuidar dos rastros também faz parte da investigação."
+    "sent_message": "Agora uma dica de detetive: quando você manda uma foto, áudio ou texto pela internet, deixa um pequeno rastro digital. Antes de compartilhar qualquer coisa, combine com um adulto e pense: eu ficaria bem se outras pessoas vissem isso? A Chapeuzinho aprendeu que cuidar dos rastros também faz parte da investigação."
   }
 }

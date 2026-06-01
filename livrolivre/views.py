@@ -7,7 +7,7 @@ from sqlite3 import Row
 from .books import BOOKS, Book, url as book_url
 from .database import admin_submissions, book_controls, comments_enabled, public_submissions, storage_status
 from .security import form_token
-from .settings import DEFAULT_BOOK_SLUG, FORM_MIN_AGE_SECONDS, TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, TELEGRAM_WEBHOOK_SECRET
+from .settings import ASSET_VERSION, DEFAULT_BOOK_SLUG, FORM_MIN_AGE_SECONDS, TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, TELEGRAM_WEBHOOK_SECRET
 from .telegram import webhook_url
 
 
@@ -43,8 +43,8 @@ def page(title: str, content: str, book: Book | None = None, extra_class: str = 
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{escape(title)}</title>
-  <link rel="stylesheet" href="/static/styles.css">
-  <script src="/static/app.js" defer></script>
+  <link rel="stylesheet" href="/static/styles.css?v={escape(ASSET_VERSION)}">
+  <script src="/static/app.js?v={escape(ASSET_VERSION)}" defer></script>
 </head>
 <body class="{escape(extra_class)}"{style}>
   {content}
@@ -114,7 +114,7 @@ def public_home(book: Book, message: str = "") -> bytes:
 
         <footer class="site-footer">
           <a href="https://sabichinho.com.br" target="_blank" rel="noopener noreferrer">Sobre</a>
-          <p>Esta ferramenta do Sabichinho aproxima livros livres de seus leitores: cada QR Code abre um pequeno mural onde crianças e adultos podem devolver fotos, áudios, vídeos e impressões para os autores, sempre com moderação.</p>
+          <p>Esta ferramenta do Sabichinho aproxima livros livres de seus leitores: cada QR Code abre um pequeno mural onde crianças e adultos podem devolver fotos, áudios e impressões para os autores, sempre com moderação.</p>
         </footer>
       </div>
     </main>
@@ -152,13 +152,6 @@ def response_form(book: Book, accepting_comments: bool) -> str:
           <input name="website" tabindex="-1" autocomplete="off">
         </label>
 
-        <div class="type-picker" role="group" aria-label="Tipo de recado">
-          <button class="type-button active" type="button" data-kind="text" aria-pressed="true"><span aria-hidden="true">T</span>Texto</button>
-          <button class="type-button" type="button" data-kind="photo" aria-pressed="false"><span aria-hidden="true">◐</span>Foto</button>
-          <button class="type-button" type="button" data-kind="audio" aria-pressed="false"><span aria-hidden="true">♪</span>Audio</button>
-          <button class="type-button" type="button" data-kind="video" aria-pressed="false"><span aria-hidden="true">▣</span>Video</button>
-        </div>
-
         <div class="field-row">
           <label>{escape(copy["name_label"])}
             <input name="author_name" maxlength="80" autocomplete="name" placeholder="{escape(copy["name_placeholder"])}">
@@ -168,30 +161,68 @@ def response_form(book: Book, accepting_comments: bool) -> str:
           </label>
         </div>
 
-        <label class="message-field" data-panel="text">{escape(copy["message_label"])}
-          <textarea name="message" maxlength="900" rows="5" placeholder="{escape(copy["message_placeholder"])}"></textarea>
-        </label>
+        <textarea class="sr-only" name="message" maxlength="900" rows="5" data-message-input>{escape("")}</textarea>
+        <input class="sr-only" type="file" name="media_photo" accept="image/png,image/jpeg,image/webp,image/gif" capture="environment" data-photo-input>
+        <input class="sr-only" type="file" name="media_audio" accept="audio/*" capture data-audio-input>
 
-        <div class="upload-panel hidden" data-panel="photo">
-          <label>{escape(copy["photo_label"])}
-            <input type="file" name="media_photo" accept="image/png,image/jpeg,image/webp,image/gif" capture="environment">
-          </label>
+        <div class="action-dock" role="group" aria-label="Escolha o tipo de recado">
+          <button class="action-button" type="button" data-open-modal="text" aria-label="Escrever texto"><span aria-hidden="true">T</span></button>
+          <button class="action-button" type="button" data-open-modal="photo" aria-label="Tirar foto"><span aria-hidden="true">▢</span></button>
+          <button class="action-button" type="button" data-open-modal="audio" aria-label="Gravar áudio"><span aria-hidden="true">♪</span></button>
         </div>
 
-        <div class="upload-panel hidden" data-panel="audio">
-          <label>{escape(copy["audio_label"])}
-            <input type="file" name="media_audio" accept="audio/*" capture>
-          </label>
-          <div class="recorder" data-recorder>
-            <button type="button" class="ghost-button" data-record-audio>Gravar audio</button>
-            <span data-record-status>Se o navegador deixar, o microfone abre por aqui.</span>
+        <section class="content-preview empty" data-content-preview aria-live="polite">
+          <p>Escolha texto, foto ou áudio para deixar sua pista.</p>
+        </section>
+
+        <div class="modal hidden" data-modal="text" role="dialog" aria-modal="true" aria-labelledby="text-modal-title">
+          <div class="modal-card">
+            <button class="modal-close" type="button" data-close-modal aria-label="Fechar">×</button>
+            <h3 id="text-modal-title">Escreva sua pista</h3>
+            <textarea maxlength="900" rows="8" placeholder="{escape(copy["message_placeholder"])}" data-text-draft></textarea>
+            <button class="send-button compact" type="button" data-save-text>Salvar texto</button>
           </div>
         </div>
 
-        <div class="upload-panel hidden" data-panel="video">
-          <label>{escape(copy["video_label"])}
-            <input type="file" name="media_video" accept="video/*" capture="user">
-          </label>
+        <div class="modal hidden" data-modal="photo" role="dialog" aria-modal="true" aria-labelledby="photo-modal-title">
+          <div class="modal-card camera-modal-card" data-camera>
+            <button class="modal-close" type="button" data-close-modal aria-label="Fechar">×</button>
+            <h3 id="photo-modal-title">Fotografe sua pista</h3>
+            <div class="camera-view">
+              <video data-camera-preview autoplay playsinline muted></video>
+              <img data-photo-preview alt="Prévia da foto capturada">
+              <div class="camera-placeholder">
+                <span aria-hidden="true">▢</span>
+                <p>A câmera aparece aqui.</p>
+              </div>
+            </div>
+            <div class="camera-actions">
+              <button type="button" class="shutter-button" data-capture-photo aria-label="Fotografar" disabled></button>
+              <button type="button" class="ghost-button" data-open-camera>Abrir câmera</button>
+              <button type="button" class="ghost-button hidden" data-retake-photo>Tirar outra</button>
+              <button type="button" class="ghost-button" data-pick-photo>Escolher foto</button>
+            </div>
+            <canvas data-photo-canvas hidden></canvas>
+            <p class="camera-status" data-camera-status>Abra a câmera ou escolha uma foto do aparelho.</p>
+          </div>
+        </div>
+
+        <div class="modal hidden" data-modal="audio" role="dialog" aria-modal="true" aria-labelledby="audio-modal-title">
+          <div class="modal-card">
+            <button class="modal-close" type="button" data-close-modal aria-label="Fechar">×</button>
+            <h3 id="audio-modal-title">Grave seu recado</h3>
+            <div class="audio-recorder" data-recorder>
+              <div class="wave" data-wave aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+              <button type="button" class="record-button" data-record-audio aria-label="Gravar áudio"></button>
+              <audio class="hidden" data-audio-preview controls></audio>
+              <div class="audio-tools">
+                <button type="button" class="ghost-button hidden" data-play-audio>Ouvir</button>
+                <button type="button" class="ghost-button danger hidden" data-delete-audio>Apagar</button>
+                <button type="button" class="ghost-button" data-pick-audio>Escolher arquivo</button>
+              </div>
+              <span data-record-status>Toque no círculo para gravar.</span>
+            </div>
+          </div>
         </div>
 
         <fieldset class="publish-choice">

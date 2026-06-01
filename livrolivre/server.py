@@ -46,7 +46,7 @@ class App(BaseHTTPRequestHandler):
             params = urllib.parse.parse_qs(parsed.query)
             msg = book.copy["sent_message"] if params.get("sent") else ""
             if params.get("error") == ["empty"]:
-                msg = "Antes de enviar, deixe uma pista: escreva um recado, escolha uma foto, grave um áudio ou mande um vídeo."
+                msg = "Antes de enviar, deixe uma pista: escreva um recado, tire uma foto ou grave um áudio."
             return self.html(public_home(book, msg))
         if path == "/admin":
             if is_admin(self.headers.get("Cookie")):
@@ -119,7 +119,7 @@ class App(BaseHTTPRequestHandler):
         if fields.get("consent") != "yes":
             raise ValueError("Confirme que voce tem autorizacao de um adulto.")
         message = fields.get("message", "").strip()
-        upload = first_upload(files, ("media_photo", "media_audio", "media_video"))
+        upload = first_upload(files, ("media_photo", "media_audio"))
         if not message and not (upload and upload.data):
             return self.redirect(f"{book_url(book)}?error=empty")
         media_type, media_path, original_name = save_media(book, upload)
