@@ -13,11 +13,14 @@
   const fields = {
     message: form.querySelector("[data-message-input]"),
     photo: form.querySelector("[data-photo-input]"),
-    audio: form.querySelector("[data-audio-input]")
+    audio: form.querySelector("[data-audio-input]"),
+    age: form.querySelector('input[name="age"]'),
+    consent: form.querySelector('input[name="consent"]')
   };
 
   const preview = createPreview(form.querySelector("[data-content-preview]"), state);
   const modals = createModals(form);
+  createAgeConsent(form, fields);
   createSubmitGuard(form, preview);
   createTextComposer(form, modals, preview, state, fields);
   createCameraComposer(form, modals, preview, state, fields);
@@ -48,6 +51,25 @@
         contentPreview.render();
       }
     });
+  }
+
+  function createAgeConsent(scope, inputs) {
+    const consentField = scope.querySelector("[data-consent-field]");
+    if (!consentField || !inputs.age || !inputs.consent) {
+      return;
+    }
+    const sync = () => {
+      const age = Number(inputs.age.value || "0");
+      const needsAdult = age > 0 && age < 18;
+      consentField.classList.toggle("hidden", !needsAdult);
+      inputs.consent.required = needsAdult;
+      inputs.consent.disabled = !needsAdult;
+      if (!needsAdult) {
+        inputs.consent.checked = false;
+      }
+    };
+    inputs.age.addEventListener("input", sync);
+    sync();
   }
 
   function createModals(scope) {
@@ -141,6 +163,7 @@
     const camera = scope.querySelector("[data-camera]");
     const openButton = scope.querySelector("[data-open-camera]");
     const captureButton = scope.querySelector("[data-capture-photo]");
+    const flipButton = scope.querySelector("[data-flip-camera]");
     const retakeButton = scope.querySelector("[data-retake-photo]");
     const pickButton = scope.querySelector("[data-pick-photo]");
     const video = scope.querySelector("[data-camera-preview]");
@@ -148,6 +171,7 @@
     const canvas = scope.querySelector("[data-photo-canvas]");
     const status = scope.querySelector("[data-camera-status]");
     let stream = null;
+    let facingMode = "environment";
 
     if (!camera || !inputs.photo) {
       return;
@@ -161,6 +185,10 @@
     scope.addEventListener("composer:close", stopCamera);
 
     openButton.addEventListener("click", openCamera);
+    flipButton.addEventListener("click", () => {
+      facingMode = facingMode === "environment" ? "user" : "environment";
+      openCamera();
+    });
     pickButton.addEventListener("click", () => inputs.photo.click());
     retakeButton.addEventListener("click", () => {
       inputs.photo.value = "";
@@ -205,14 +233,16 @@
       try {
         stopCamera();
         stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: { ideal: "environment" } },
+          video: { facingMode: { ideal: facingMode } },
           audio: false
         });
         video.srcObject = stream;
         captureButton.disabled = false;
         camera.classList.add("camera-live");
         camera.classList.remove("camera-captured");
-        status.textContent = "Enquadre sua pista e toque no botão redondo.";
+        status.textContent = facingMode === "user"
+          ? "Câmera frontal ligada. Enquadre sua pista e toque no botão redondo."
+          : "Câmera de trás ligada. Enquadre sua pista e toque no botão redondo.";
       } catch (error) {
         captureButton.disabled = true;
         status.textContent = "Não consegui abrir a câmera. Você pode escolher uma foto do aparelho.";
@@ -253,7 +283,7 @@
     const recordButton = scope.querySelector("[data-record-audio]");
     const playButton = scope.querySelector("[data-play-audio]");
     const deleteButton = scope.querySelector("[data-delete-audio]");
-    const pickButton = scope.querySelector("[data-pick-audio]");
+    const saveButton = scope.querySelector("[data-save-audio]");
     const status = scope.querySelector("[data-record-status]");
     const previewAudio = scope.querySelector("[data-audio-preview]");
     const recorderBox = scope.querySelector("[data-recorder]");
@@ -283,15 +313,13 @@
       previewAudio.removeAttribute("src");
       playButton.classList.add("hidden");
       deleteButton.classList.add("hidden");
+      saveButton.classList.add("hidden");
       previewAudio.classList.add("hidden");
       status.textContent = "Toque no círculo para gravar.";
       contentPreview.render();
     });
-    pickButton.addEventListener("click", () => inputs.audio.click());
-    inputs.audio.addEventListener("change", () => {
-      const file = inputs.audio.files && inputs.audio.files[0];
-      if (file) {
-        setAudio(file, URL.createObjectURL(file));
+    saveButton.addEventListener("click", () => {
+      if (inputs.audio.files && inputs.audio.files.length > 0) {
         modals.close();
       }
     });
@@ -299,7 +327,7 @@
 
     async function startRecording() {
       if (!navigator.mediaDevices || !window.MediaRecorder) {
-        status.textContent = "Neste aparelho, escolha um arquivo de áudio.";
+        status.textContent = "Neste aparelho, não consegui abrir o gravador de áudio.";
         return;
       }
       try {
@@ -338,6 +366,7 @@
       previewAudio.classList.remove("hidden");
       playButton.classList.remove("hidden");
       deleteButton.classList.remove("hidden");
+      saveButton.classList.remove("hidden");
       recorderBox.classList.remove("recording");
       recordButton.setAttribute("aria-label", "Gravar áudio");
       status.textContent = `Áudio pronto: ${file.name}`;

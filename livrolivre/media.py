@@ -39,6 +39,7 @@ def save_media(book: Book, upload: UploadedFile | None) -> tuple[str | None, str
 
 def convert_audio(data: bytes, source_ext: str) -> bytes | None:
     if not shutil.which("ffmpeg"):
+        print("Conversao de audio pulada: ffmpeg nao encontrado.")
         return None
     with tempfile.TemporaryDirectory() as tmp:
         source = Path(tmp) / f"source{source_ext}"
@@ -67,8 +68,14 @@ def convert_audio(data: bytes, source_ext: str) -> bytes | None:
         ]
         try:
             subprocess.run(command, check=True, timeout=20, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
-        except (subprocess.SubprocessError, OSError):
+        except subprocess.CalledProcessError as exc:
+            error = exc.stderr.decode("utf-8", "replace") if exc.stderr else str(exc)
+            print(f"Conversao de audio falhou: {error[:400]}")
+            return None
+        except (subprocess.SubprocessError, OSError) as exc:
+            print(f"Conversao de audio falhou: {exc}")
             return None
         if not target.exists() or target.stat().st_size == 0:
+            print("Conversao de audio falhou: arquivo OGG vazio.")
             return None
         return target.read_bytes()

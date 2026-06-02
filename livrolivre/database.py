@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import sqlite3
 import time
 from pathlib import Path
@@ -45,6 +46,7 @@ def storage_status() -> dict[str, object]:
         "database_size": stat.st_size if stat else 0,
         "database_mtime": int(stat.st_mtime) if stat else None,
         "data_dir_writable": writable,
+        "ffmpeg_available": bool(shutil.which("ffmpeg")),
         "books_count": books_count,
         "submissions_count": submissions_count,
         "cwd": os.getcwd(),
@@ -80,6 +82,7 @@ def init_db() -> None:
                 media_type TEXT,
                 media_path TEXT,
                 media_original_name TEXT,
+                age INTEGER,
                 image_path TEXT,
                 image_original_name TEXT,
                 created_at INTEGER NOT NULL,
@@ -103,6 +106,7 @@ def migrate_submissions(conn: sqlite3.Connection) -> None:
         "media_type": "ALTER TABLE submissions ADD COLUMN media_type TEXT",
         "media_path": "ALTER TABLE submissions ADD COLUMN media_path TEXT",
         "media_original_name": "ALTER TABLE submissions ADD COLUMN media_original_name TEXT",
+        "age": "ALTER TABLE submissions ADD COLUMN age INTEGER",
         "image_path": "ALTER TABLE submissions ADD COLUMN image_path TEXT",
         "image_original_name": "ALTER TABLE submissions ADD COLUMN image_original_name TEXT",
     }

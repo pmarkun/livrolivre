@@ -20,7 +20,7 @@ TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID", "")
 TELEGRAM_WEBHOOK_SECRET = os.environ.get("TELEGRAM_WEBHOOK_SECRET", "")
 TELEGRAM_TIMEOUT_SECONDS = int(os.environ.get("TELEGRAM_TIMEOUT_SECONDS", "8"))
-ASSET_VERSION = os.environ.get("ASSET_VERSION", "20260601-camera-modal")
+ASSET_VERSION = os.environ.get("ASSET_VERSION", "20260601-camera-audio-ui")
 
 
 def upload_limit_mb() -> int:

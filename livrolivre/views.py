@@ -156,6 +156,9 @@ def response_form(book: Book, accepting_comments: bool) -> str:
           <label>{escape(copy["name_label"])}
             <input name="author_name" maxlength="80" autocomplete="name" placeholder="{escape(copy["name_placeholder"])}">
           </label>
+          <label>Idade
+            <input name="age" type="number" min="1" max="120" inputmode="numeric" placeholder="Quantos anos?">
+          </label>
           <label>{escape(copy["city_label"])}
             <input name="city" maxlength="80" autocomplete="address-level2" placeholder="{escape(copy["city_placeholder"])}">
           </label>
@@ -166,9 +169,9 @@ def response_form(book: Book, accepting_comments: bool) -> str:
         <input class="sr-only" type="file" name="media_audio" accept="audio/*" capture data-audio-input>
 
         <div class="action-dock" role="group" aria-label="Escolha o tipo de recado">
-          <button class="action-button" type="button" data-open-modal="text" aria-label="Escrever texto"><span aria-hidden="true">T</span></button>
-          <button class="action-button" type="button" data-open-modal="photo" aria-label="Tirar foto"><span aria-hidden="true">▢</span></button>
-          <button class="action-button" type="button" data-open-modal="audio" aria-label="Gravar áudio"><span aria-hidden="true">♪</span></button>
+          <button class="action-button" type="button" data-open-modal="text" aria-label="Escrever texto"><span aria-hidden="true">{notebook_icon()}</span></button>
+          <button class="action-button" type="button" data-open-modal="photo" aria-label="Tirar foto"><span aria-hidden="true">{camera_icon()}</span></button>
+          <button class="action-button" type="button" data-open-modal="audio" aria-label="Gravar áudio"><span aria-hidden="true">{audio_icon()}</span></button>
         </div>
 
         <section class="content-preview empty" data-content-preview aria-live="polite">
@@ -192,11 +195,12 @@ def response_form(book: Book, accepting_comments: bool) -> str:
               <video data-camera-preview autoplay playsinline muted></video>
               <img data-photo-preview alt="Prévia da foto capturada">
               <div class="camera-placeholder">
-                <span aria-hidden="true">▢</span>
+                <span aria-hidden="true">{camera_icon()}</span>
                 <p>A câmera aparece aqui.</p>
               </div>
             </div>
             <div class="camera-actions">
+              <button type="button" class="icon-button" data-flip-camera aria-label="Virar câmera">{flip_camera_icon()}</button>
               <button type="button" class="shutter-button" data-capture-photo aria-label="Fotografar" disabled></button>
               <button type="button" class="ghost-button" data-open-camera>Abrir câmera</button>
               <button type="button" class="ghost-button hidden" data-retake-photo>Tirar outra</button>
@@ -218,7 +222,7 @@ def response_form(book: Book, accepting_comments: bool) -> str:
               <div class="audio-tools">
                 <button type="button" class="ghost-button hidden" data-play-audio>Ouvir</button>
                 <button type="button" class="ghost-button danger hidden" data-delete-audio>Apagar</button>
-                <button type="button" class="ghost-button" data-pick-audio>Escolher arquivo</button>
+                <button type="button" class="send-button compact hidden" data-save-audio>Salvar áudio</button>
               </div>
               <span data-record-status>Toque no círculo para gravar.</span>
             </div>
@@ -231,10 +235,51 @@ def response_form(book: Book, accepting_comments: bool) -> str:
           <label class="choice"><input type="radio" name="visibility" value="private"> {escape(copy["private_label"])}</label>
         </fieldset>
 
-        <label class="choice consent"><input type="checkbox" name="consent" value="yes" required> {escape(copy["consent"])}</label>
+        <label class="choice consent hidden" data-consent-field><input type="checkbox" name="consent" value="yes" disabled> {escape(copy["consent"])}</label>
         <button class="send-button" type="submit" data-ready-label="{escape(copy["submit_label"])}">{escape(copy["submit_label"])}</button>
       </form>
     </section>
+    """
+
+
+def notebook_icon() -> str:
+    return """
+    <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+      <path d="M7 3.5h10.5A2.5 2.5 0 0 1 20 6v12a2.5 2.5 0 0 1-2.5 2.5H7A3 3 0 0 1 4 17.5v-11a3 3 0 0 1 3-3Z"/>
+      <path d="M8 3.5v17M11 8h5M11 12h5M11 16h3"/>
+    </svg>
+    """
+
+
+def camera_icon() -> str:
+    return """
+    <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+      <path d="M4 8.5A2.5 2.5 0 0 1 6.5 6H9l1.5-2h3L15 6h2.5A2.5 2.5 0 0 1 20 8.5v8A2.5 2.5 0 0 1 17.5 19h-11A2.5 2.5 0 0 1 4 16.5v-8Z"/>
+      <circle cx="12" cy="12.5" r="3.5"/>
+    </svg>
+    """
+
+
+def audio_icon() -> str:
+    return """
+    <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+      <path d="M12 4v10a3 3 0 0 1-3 3 3 3 0 0 1 0-6h3"/>
+      <path d="M16 6v8"/>
+      <path d="M19 8v4"/>
+    </svg>
+    """
+
+
+def flip_camera_icon() -> str:
+    return """
+    <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+      <path d="M4.5 9A7.5 7.5 0 0 1 17 5.5"/>
+      <path d="M17 2.5v3h-3"/>
+      <path d="M19.5 15A7.5 7.5 0 0 1 7 18.5"/>
+      <path d="M7 21.5v-3h3"/>
+      <path d="M8 10.5A1.5 1.5 0 0 1 9.5 9H11l1-1.3h2L15 9h1.5a1.5 1.5 0 0 1 1.5 1.5v4A1.5 1.5 0 0 1 16.5 16h-7A1.5 1.5 0 0 1 8 14.5v-4Z"/>
+      <circle cx="13" cy="12.6" r="1.8"/>
+    </svg>
     """
 
 
@@ -287,7 +332,7 @@ def admin_dashboard() -> bytes:
                   <span>{escape(row["book_title"])} / {escape(visibility)} / {escape(row["status"])} / {fmt_date(row["created_at"])}</span>
                 </header>
                 <p>{escape(row["message"] or "Sem texto.")}</p>
-                <small>{escape(row["city"])}</small>
+                <small>{escape(row["city"])}{f' / {int(row["age"])} anos' if row["age"] else ''}</small>
                 <div class="actions">{actions}</div>
               </div>
             </article>
@@ -329,6 +374,7 @@ def system_panel() -> str:
         <div><dt>DATABASE_PATH</dt><dd>{escape(status["database_path"])}</dd></div>
         <div><dt>Banco</dt><dd>{'existe' if status["database_exists"] else 'nao existe'} / {status["database_size"]} bytes / {db_mtime}</dd></div>
         <div><dt>Gravavel</dt><dd>{'sim' if status["data_dir_writable"] else 'nao'}</dd></div>
+        <div><dt>FFmpeg</dt><dd>{'disponivel' if status["ffmpeg_available"] else 'nao encontrado'}</dd></div>
         <div><dt>Registros</dt><dd>{status["books_count"]} livros / {status["submissions_count"]} recados</dd></div>
         <div><dt>Telegram</dt><dd>{'configurado' if telegram_ready else 'nao configurado'} / chat {escape(TELEGRAM_CHAT_ID or '-')} / secret {'sim' if TELEGRAM_WEBHOOK_SECRET else 'nao'}</dd></div>
         <div><dt>Webhook esperado</dt><dd>{escape(webhook_url() or '-')}</dd></div>

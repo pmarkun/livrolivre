@@ -53,9 +53,10 @@ def notify_submission(submission_id: int, book: Book) -> None:
     row = submission_with_book(submission_id)
     if not row:
         return
-    text = submission_text(row, book)
-    api("sendMessage", {"chat_id": TELEGRAM_CHAT_ID, "text": text, "reply_markup": keyboard(submission_id)})
-    send_media(row)
+    text = submission_text(row, book, include_media_link=False)
+    markup = keyboard(submission_id)
+    if not send_media(row, text, markup):
+        api("sendMessage", {"chat_id": TELEGRAM_CHAT_ID, "text": text, "reply_markup": markup})
 
 
 def send_test_message() -> dict:
@@ -117,12 +118,13 @@ def authorized_chat(chat: dict) -> bool:
     return chat_id == configured
 
 
-def submission_text(row: Row, book: Book) -> str:
+def submission_text(row: Row, book: Book, include_media_link: bool = True) -> str:
     visibility = "pode publicar" if row["visibility"] == "public" else "so para autores"
     media = row["media_type"] or "sem midia"
     parts = [
         f"Novo recado: {book.short_title}",
         f"De: {row['author_name'] or 'Leitor misterioso'}",
+        f"Idade: {row['age'] or 'nao informada'}",
         f"Local: {row['city'] or 'nao informado'}",
         f"Destino: {visibility}",
         f"Midia: {media}",
@@ -130,19 +132,19 @@ def submission_text(row: Row, book: Book) -> str:
     if row["message"]:
         parts.append("")
         parts.append(row["message"])
-    links = submission_links(row, book)
+    links = submission_links(row, book, include_media=include_media_link)
     if links:
         parts.append("")
         parts.extend(links)
     return "\n".join(parts)
 
 
-def submission_links(row: Row, book: Book) -> list[str]:
+def submission_links(row: Row, book: Book, include_media: bool = True) -> list[str]:
     if not PUBLIC_BASE_URL:
         return []
     links = [f"Admin: {PUBLIC_BASE_URL}/admin", f"Pagina: {PUBLIC_BASE_URL}{book_url(book)}"]
     media_path = row["media_path"] or row["image_path"]
-    if media_path:
+    if include_media and media_path:
         links.append(f"Midia: {PUBLIC_BASE_URL}/uploads/{media_path}")
     return links
 
@@ -154,22 +156,32 @@ def media_url(row: Row) -> str:
     return f"{PUBLIC_BASE_URL}/uploads/{media_path}"
 
 
-def send_media(row: Row) -> None:
+def send_media(row: Row, text: str, reply_markup: dict) -> bool:
     url = media_url(row)
     if not enabled() or not url:
-        return
+        return False
     media_type = row["media_type"] or ("image" if row["image_path"] else "")
-    caption = f"Recado #{row['id']}"
+    caption = telegram_caption(text)
     if media_type == "image":
-        api("sendPhoto", {"chat_id": TELEGRAM_CHAT_ID, "photo": url, "caption": caption})
+        result = api("sendPhoto", {"chat_id": TELEGRAM_CHAT_ID, "photo": url, "caption": caption, "reply_markup": reply_markup})
+        return bool(result.get("ok"))
     elif media_type == "audio":
         if str(row["media_path"] or "").lower().endswith(".ogg"):
-            result = api("sendVoice", {"chat_id": TELEGRAM_CHAT_ID, "voice": url, "caption": caption})
+            result = api("sendVoice", {"chat_id": TELEGRAM_CHAT_ID, "voice": url, "caption": caption, "reply_markup": reply_markup})
             if result.get("ok"):
-                return
-        result = api("sendAudio", {"chat_id": TELEGRAM_CHAT_ID, "audio": url, "caption": caption})
-        if not result.get("ok"):
-            api("sendDocument", {"chat_id": TELEGRAM_CHAT_ID, "document": url, "caption": f"{caption} (audio)"})
+                return True
+        result = api("sendAudio", {"chat_id": TELEGRAM_CHAT_ID, "audio": url, "caption": caption, "reply_markup": reply_markup})
+        if result.get("ok"):
+            return True
+        result = api("sendDocument", {"chat_id": TELEGRAM_CHAT_ID, "document": url, "caption": caption, "reply_markup": reply_markup})
+        return bool(result.get("ok"))
+    return False
+
+
+def telegram_caption(text: str) -> str:
+    if len(text) <= 950:
+        return text
+    return text[:947].rstrip() + "..."
 
 
 def keyboard(submission_id: int) -> dict:

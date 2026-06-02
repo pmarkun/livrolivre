@@ -116,7 +116,8 @@ class App(BaseHTTPRequestHandler):
             raise ValueError("Nao foi possivel receber este recado.")
         if not valid_form_token(book.slug, fields.get("form_token", "")):
             raise ValueError("Abra a pagina novamente e tente enviar o recado mais uma vez.")
-        if fields.get("consent") != "yes":
+        age = parse_age(fields.get("age", ""))
+        if age is not None and age < 18 and fields.get("consent") != "yes":
             raise ValueError("Confirme que voce tem autorizacao de um adulto.")
         message = fields.get("message", "").strip()
         upload = first_upload(files, ("media_photo", "media_audio"))
@@ -132,8 +133,8 @@ class App(BaseHTTPRequestHandler):
                 """
                 INSERT INTO submissions (
                     book_id, author_name, city, message, visibility, status, media_type,
-                    media_path, media_original_name, created_at, updated_at, user_agent, ip_hash
-                ) VALUES (?, ?, ?, ?, ?, 'pending', ?, ?, ?, ?, ?, ?, ?)
+                    media_path, media_original_name, age, created_at, updated_at, user_agent, ip_hash
+                ) VALUES (?, ?, ?, ?, ?, 'pending', ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     book_id(conn, book.slug),
@@ -144,6 +145,7 @@ class App(BaseHTTPRequestHandler):
                     media_type,
                     media_path,
                     original_name,
+                    age,
                     timestamp,
                     timestamp,
                     self.headers.get("User-Agent", "")[:240],
@@ -247,6 +249,19 @@ def first_upload(files: dict, names: tuple[str, ...]):
         if upload and upload.filename and upload.data:
             return upload
     return None
+
+
+def parse_age(value: str) -> int | None:
+    value = (value or "").strip()
+    if not value:
+        return None
+    try:
+        age = int(value)
+    except ValueError as exc:
+        raise ValueError("Informe uma idade valida.") from exc
+    if age < 1 or age > 120:
+        raise ValueError("Informe uma idade valida.")
+    return age
 
 
 def run() -> None:
